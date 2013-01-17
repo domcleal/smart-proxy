@@ -17,15 +17,22 @@ module Proxy::Puppet
         logger.warn "sudo or puppetrun binary was not found - aborting"
         return false
       end
+
       # Append kick to the puppet command if we are not using the old puppetca command
       puppetrun << " kick" unless puppetrun.include?('puppetrun')
+      sudo_puppetrun = "#{sudo} #{puppetrun}"
 
-      command = %x[#{sudo} #{puppetrun} --host #{hosts.join(" --host ")}]
-      unless command =~ /finished with exit code 0/
+      puppet_cmd = [sudo_puppetrun, hosts.map {|h| ["--host", h]}].flatten
+
+      # Returns a boolean with whether or not the command executed successfully.
+      command = system(*puppet_cmd)
+
+      if command
+        return true
+      else
         logger.warn command
         return false
       end
-      return true
     end
   end
 end
