@@ -6,6 +6,7 @@ module Proxy::Puppet
 
 
   class << self
+    require 'open3'
     def run *hosts
       # Search in /opt/ for puppet enterprise users
       default_path = ["/usr/sbin", "/usr/bin", "/opt/puppet/bin"]
@@ -18,19 +19,19 @@ module Proxy::Puppet
         return false
       end
 
-      # Append kick to the puppet command if we are not using the old puppetca command
-      puppetrun << " kick" unless puppetrun.include?('puppetrun')
-      sudo_puppetrun = "#{sudo} #{puppetrun}"
+      puppet_cmd = [puppetrun]
+      puppet_cmd += ["kick"] unless puppetrun.include?('puppetrun')
 
-      puppet_cmd = [sudo_puppetrun, hosts.map {|h| ["--host", h]}].flatten
+      # Add a --host argument for each client where a run was requested.
+      hosts.map { |h| puppet_cmd += ["--host", escape_for_shell(h)] }
 
       # Returns a boolean with whether or not the command executed successfully.
-      command = system(*puppet_cmd)
+      stdin, stdout, stderr = Open3.popen3(*puppet_cmd)
 
-      if command
+      if stdout =~ /finished with exit code 0/
         return true
       else
-        logger.warn command
+        logger.warn "The attempted puppetrun failed"
         return false
       end
     end
