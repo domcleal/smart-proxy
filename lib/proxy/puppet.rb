@@ -26,13 +26,14 @@ module Proxy::Puppet
       hosts.map { |h| puppet_cmd += ["--host", escape_for_shell(h)] }
 
       # Returns a boolean with whether or not the command executed successfully.
-      stdin, stdout, stderr = Open3.popen3(*puppet_cmd)
-
-      if stdout =~ /finished with exit code 0/
-        return true
-      else
-        logger.warn "The attempted puppetrun failed"
-        return false
+      Open3.popen3(*puppet_cmd) do |stdin, stdout, stderr|
+        strout = stdout.read
+        if strout =~ /finished with exit code 0/
+          return true
+        else
+          logger.warn "The attempted puppetrun failed:\n#{stderr.read}\n#{strout}"
+          return false
+        end
       end
     end
   end
