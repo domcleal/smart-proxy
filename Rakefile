@@ -2,6 +2,7 @@ require 'rake'
 require 'rake/testtask'
 require 'rake/packagetask'
 require 'rubygems/package_task'
+require 'rdoc/task'
 load 'tasks/proxy_tasks.rake'
 load 'tasks/jenkins.rake'
 
@@ -28,18 +29,13 @@ Rake::TestTask.new(:test) do |t|
   t.verbose = true
 end
 
-begin
-  require 'rdoc/task'
-  desc 'Generate documentation for the Foreman Proxy plugin.'
-  Rake::RDocTask.new(:rdoc) do |rdoc|
-    rdoc.rdoc_dir = 'rdoc'
-    rdoc.title    = 'Proxy'
-    rdoc.options << '--line-numbers' << '--inline-source'
-    rdoc.rdoc_files.include('README')
-    rdoc.rdoc_files.include('lib/**/*.rb')
-  end
-rescue LoadError
-  # skip if bundler group not installed
+desc 'Generate documentation for the Foreman Proxy plugin.'
+Rake::RDocTask.new(:rdoc) do |rdoc|
+  rdoc.rdoc_dir = 'rdoc'
+  rdoc.title    = 'Proxy'
+  rdoc.options << '--line-numbers' << '--inline-source'
+  rdoc.rdoc_files.include('README')
+  rdoc.rdoc_files.include('lib/**/*.rb')
 end
 
 spec = Gem::Specification.new do |s|

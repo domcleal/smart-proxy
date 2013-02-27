@@ -4,4 +4,5 @@ group :test do
   gem 'rack-test'
   gem 'single_test'
   gem 'ci_reporter', '>= 1.6.3'
+  gem 'rdoc'
 end
