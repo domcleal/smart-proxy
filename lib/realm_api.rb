@@ -1,90 +1,36 @@
-require 'pry-remote'
 class SmartProxy < Sinatra::Base
-
-  use Rack::MethodOverride
-  def client_setup fqdn
+  def realm_setup
     raise "Smart Proxy is not configured to support Realm" unless SETTINGS.realm
-    #raise "No client host specified" unless fqdn
 
-    case SETTINGS.realm_vendor.downcase
-      when "ipa"
-        require 'proxy/realm/ipa'
-        unless SETTINGS.realm_tsig_keytab and SETTINGS.realm_tsig_principal \
-          and File.exist?(SETTINGS.realm_tsig_keytab)
-          log_halt 400, "Unable to find the Realm keytab file (or realm_tsig_principal is not set)"
-        end
-        Proxy::Realm::IPA.new(
-          :fqdn => fqdn,
-          :tsig_keytab => SETTINGS.realm_tsig_keytab,
-          :tsig_principal => SETTINGS.realm_tsig_principal
-        )
+    case SETTINGS.realm_provider
+      when "freeipa"
+        require 'proxy/realm/freeipa'
+        @realm = Proxy::Realm::FreeIPA.new
       else
-        log_halt 400, "Unrecognized or missing Realm vendor type: #{SETTINGS.realm_vendor.nil? ? "MISSING" : SETTINGS.realm_vendor}"
+        log_halt 400, "Unrecognized or missing Realm provider: #{SETTINGS.realm_provider.nil? ? "MISSING" : SETTINGS.realm_provider}"
     end
-  rescue => e
-    log_halt 400, e
-  end
-
-  helpers do
-  end
-
-  before do
-    #client_setup params[:fqdn] if request.path_info =~ /realm/
-  end
-
-  get "/realm/:fqdn" do
-    #fqdn = params[:fqdn]
-    #binding.remote_pry
-
-    client = client_setup params[:fqdn]
-    
-#    binding.remote_pry
-
-    begin
-    client.host_find
-      if request.accept? 'application/json'
-        content_type :json
-        {
-          :fqdn => client.fqdn,
-          :output => client.output,
-        }.to_json
-      else
-        erb :"realm/show"
-      end
     rescue => e
       log_halt 400, e
-    end
+  end
+ 
+  before do
+    realm_setup if request.path_info =~ /realm/
   end
 
-  # create a new host in a realm
-  post "/realm/" do
-    fqdn = params[:fqdn]
-#    binding.remote_pry
+  post "/realm/:realm/?" do 
     begin
-      client = client_setup fqdn
-      client.host_add
       content_type :json
-      {
-        :pwd => client.pwd
-      }.to_json
-    rescue Proxy::Realm::Error => e
-      log_halt 409, e
+      @realm.create params[:realm], params
     rescue Exception => e
       log_halt 400, e
     end
   end
 
-  # delete a host from a realm
-  delete "/realm/:fqdn" do
-    fqdn = params[:fqdn]
+  delete "/realm/:realm/:hostname/?" do
     begin
-      client = client_setup fqdn
-      client.host_del
-    rescue => e
+      @realm.delete params[:realm], params[:hostname]
+    rescue Exception => e
       log_halt 400, e
     end
   end
-
 end
-
-# vim: ai ts=2 sts=2 et sw=2 ft=ruby
