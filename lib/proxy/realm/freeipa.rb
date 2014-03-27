@@ -1,13 +1,14 @@
-require 'base64'
 require 'gssapi'
 require 'helpers'
 require 'proxy/kerberos'
+require 'proxy/util'
 require 'uri'
 require 'xmlrpc/client'
 
 module Proxy::Realm
   class FreeIPA < Client
     include Proxy::Kerberos
+    include Proxy::Util
 
     IPA_CONFIG = "/etc/ipa/default.conf"
 
@@ -46,7 +47,7 @@ module Proxy::Realm
         XMLRPC::Config.module_eval { const_set(:ENABLE_NIL_PARSER, true) }
 
         @ipa = XMLRPC::Client.new2(@ipa_server.to_s)
-        @ipa.http_header_extra={ 'Authorization'=>"Negotiate #{Base64.strict_encode64(token)}",
+        @ipa.http_header_extra={ 'Authorization'=>"Negotiate #{strict_encode64(token)}",
                                  'Referer' => @ipa_server.to_s,
                                  'Content-Type' => 'text/xml; charset=utf-8'
                                }
