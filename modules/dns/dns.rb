@@ -6,14 +6,14 @@ module Proxy::Dns
   class Record
     include Proxy::Log
 
-    def initialize options = {}
-      @server = options[:server] || "localhost"
+    def initialize settings, module_settings, options={}
+      @server = module_settings.dns_server || "localhost"
       @fqdn   = options[:fqdn]
-      @ttl    = options[:ttl]    || "86400"
-      @type   = options[:type]   || "A"
+      @ttl    = module_settings.dns_ttl || options[:ttl] || "86400"
+      @type   = options[:type] || "A"
       @value  = options[:value]
 
-      raise("Must define FQDN or Value") if @fqdn.nil? and @value.nil?
+      raise("Must define FQDN or value") if @fqdn.nil? and @value.nil?
     end
   end
 end

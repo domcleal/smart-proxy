@@ -6,10 +6,10 @@ module Proxy::Dns
     include Proxy::Util
     include Proxy::Virsh
 
-    def initialize options = {}
-      @network = options[:virsh_network]
+    def initialize settings, module_settings, options={}
+      @network = settings.virsh_network
       raise "DNS virsh provider needs 'virsh_network' option" unless network
-      super(options)
+      super(settings, module_settings, options)
     end
 
     def create
