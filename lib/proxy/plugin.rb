@@ -5,8 +5,8 @@ class ::Proxy::Dependency
   attr_reader :name, :version
 
   def initialize(aname, aversion)
-    @name = name.to_sym
-    @version = version
+    @name = aname.to_sym
+    @version = aversion
   end
 end
 
@@ -76,7 +76,7 @@ class ::Proxy::Plugin
     end
 
     def requires(plugin_name, version_spec)
-      self.dependencies += [::Proxy::Dependency.new(plugin_name, version_spec)]
+      self.dependencies << ::Proxy::Dependency.new(plugin_name, version_spec)
     end
 
     def bundler_group(name)
@@ -105,7 +105,7 @@ class ::Proxy::Plugin
 
     def plugin(plugin_name, aversion)
       @plugin_name = plugin_name.to_sym
-      @version = aversion
+      @version = aversion.chomp('-develop')
       ::Proxy::Plugins.plugin_loaded(@plugin_name, @version, self.name)
     end
   end
@@ -147,7 +147,8 @@ class ::Proxy::Plugin
   def configure_plugin
     if settings.enabled
       log_used_default_settings
-      ::Proxy::Plugins.plugin_enabled(plugin_name, self) 
+      validate_dependencies!(self.class.dependencies)
+      ::Proxy::Plugins.plugin_enabled(plugin_name, self)
       ::Proxy::BundlerHelper.require_groups(:default, bundler_group)
       after_activation
     else
@@ -165,9 +166,9 @@ class ::Proxy::Plugin
   def validate_dependencies!(dependencies)
     dependencies.each do |dep|
       plugin = ::Proxy::Plugins.find_plugin(dep.name)
-      raise ::Proxy::PluginNotFound "Plugin '#{dep.name}' required by plugin '#{plugin_name}' could not be found." unless plugin
-      unless ::Gem::Dependency.new('', dep.version).match?('', version)
-        raise ::Proxy::PluginVersionMismatch "Available version '#{version}' of plugin '#{dep.name}' doesn't match version '#{dep.version}' required by plugin '#{plugin_name}'"
+      raise ::Proxy::PluginNotFound, "Plugin '#{dep.name}' required by plugin '#{plugin_name}' could not be found." unless plugin
+      unless ::Gem::Dependency.new('', dep.version).match?('', plugin.version)
+        raise ::Proxy::PluginVersionMismatch, "Available version '#{plugin.version}' of plugin '#{dep.name}' doesn't match version '#{dep.version}' required by plugin '#{plugin_name}'"
       end
     end
   end
