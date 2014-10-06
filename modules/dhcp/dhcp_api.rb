@@ -1,6 +1,7 @@
 class Proxy::DhcpApi < ::Sinatra::Base
   helpers ::Proxy::Helpers
   authorize_with_trusted_hosts
+  require_ssl_client_verification
   use Rack::MethodOverride
 
   before do

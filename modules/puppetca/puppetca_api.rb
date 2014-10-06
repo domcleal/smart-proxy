@@ -4,6 +4,7 @@ module Proxy::PuppetCa
   class Api < ::Sinatra::Base
     helpers ::Proxy::Helpers
     authorize_with_trusted_hosts
+    require_ssl_client_verification
 
     get "/?" do
       content_type :json

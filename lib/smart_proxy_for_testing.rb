@@ -11,6 +11,7 @@ require 'proxy/plugin'
 require 'proxy/error'
 
 require 'sinatra/base'
+require 'sinatra/ssl_client_verification'
 require 'sinatra/trusted_hosts'
 
 Proxy::SETTINGS = ::Proxy::Settings::Global.new(:log_file => './logs/test.log', :log_level => 'DEBUG')
@@ -19,6 +20,7 @@ Proxy::VERSION = File.read(File.join(File.dirname(__FILE__), '../VERSION')).chom
 ::Sinatra::Base.set :run, false
 
 class ::Proxy::Plugin
+  ::Sinatra::Base.register ::Sinatra::SSLClientVerification
   ::Sinatra::Base.register ::Sinatra::TrustedHosts
 
   def self.load_test_settings(a_hash)

@@ -1,6 +1,7 @@
 class Proxy::RootApi < Sinatra::Base
   helpers ::Proxy::Helpers
   authorize_with_trusted_hosts
+  require_ssl_client_verification
 
   get "/features" do
     begin

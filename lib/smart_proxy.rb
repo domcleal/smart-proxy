@@ -24,6 +24,7 @@ Proxy::BundlerHelper.require_groups(:default)
 
 require 'rack-patch' if Rack.release < "1.3"
 require 'sinatra-patch'
+require 'sinatra/ssl_client_verification'
 require 'sinatra/trusted_hosts'
 
 module Proxy
@@ -38,6 +39,7 @@ module Proxy
   ::Sinatra::Base.use ::Proxy::LoggerMiddleware # instead, we have our own logging middleware
   ::Sinatra::Base.use ::Rack::CommonLogger, ::Proxy::Log.logger
   ::Sinatra::Base.set :env, :production
+  ::Sinatra::Base.register ::Sinatra::SSLClientVerification
   ::Sinatra::Base.register ::Sinatra::TrustedHosts
 
   require 'root/root'

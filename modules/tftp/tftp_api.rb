@@ -7,6 +7,7 @@ module Proxy::TFTP
     include ::Proxy::Validations
     helpers ::Proxy::Helpers
     authorize_with_trusted_hosts
+    require_ssl_client_verification
 
     helpers do
       def instantiate variant, mac=nil
