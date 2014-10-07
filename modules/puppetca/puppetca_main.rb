@@ -1,4 +1,5 @@
 require 'openssl'
+require 'pathname'
 require 'puppet'
 
 module Proxy::PuppetCa
