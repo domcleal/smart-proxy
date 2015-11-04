@@ -142,6 +142,17 @@ module Proxy
         exit(0)
       end
 
+      trap('TTIN') do
+        puts "Starting thread dump for current Ruby process"
+        puts "============================================="
+        puts ""
+        Thread.list.each do |thread|
+          puts "Thread TID-#{thread.object_id}"
+          puts thread.backtrace
+          puts ""
+        end
+      end
+
       (t1 || t2).join
     end
   end
