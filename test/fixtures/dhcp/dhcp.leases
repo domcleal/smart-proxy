@@ -26,6 +26,10 @@ host deleteme.example.com {
   supersede host-name = "deleteme.example.com";
   deleted;
 }
+host deleteme.example.com {
+  dynamic;
+  deleted;
+}
 
 # The following six leases are from booting a real-world DELL hardware with
 # PXE using Foreman Discovery. Fist, a BIOS/UEFI DHCP request is sent along

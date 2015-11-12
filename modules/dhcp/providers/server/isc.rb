@@ -78,13 +78,10 @@ module Proxy::DHCP
             opts.merge!(parse_record_options(data))
           end
         end
-        begin
-          subnet = @service.find_subnet(opts[:ip])
-          next unless subnet
-          ret_val << Proxy::DHCP::Reservation.new(opts.merge(:subnet => subnet))
-        rescue Exception => e
-          logger.warn "skipped #{hostname} - #{e}"
-        end
+        next if !opts.has_key?(:ip)
+        subnet = @service.find_subnet(opts[:ip])
+        next unless subnet
+        ret_val << Proxy::DHCP::Reservation.new(opts.merge(:subnet => subnet))
       end
 
       conf.scan(/lease\s+(\S+\s*\{[^}]+\})/) do |lease|
