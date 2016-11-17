@@ -45,8 +45,9 @@ module Proxy::DHCP
         return to_ret if to_ret # we were given a subnet address
 
         # TODO: this can be done much faster
+        ipaddr = IPAddr.new(address)
         subnets.values.each do |subnet|
-          return subnet if subnet.include?(address)
+          return subnet if subnet.include?(ipaddr)
         end
       end
 
