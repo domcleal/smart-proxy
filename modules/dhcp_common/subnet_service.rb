@@ -238,14 +238,14 @@ module Proxy::DHCP
       end
 
       def find_rightmost(root, memo)
-        if memo.length == 32 # leaf
-          root
-        elsif root.one
+        if root.one
           memo << 1
           find_rightmost(root.one, memo)
         elsif root.zero
           memo << 0
           find_rightmost(root.zero, memo)
+        elsif memo.length == 32 # leaf
+          root
         else
           nil
         end
