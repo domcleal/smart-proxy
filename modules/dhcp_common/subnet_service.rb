@@ -8,7 +8,7 @@ module Proxy::DHCP
 
     def initialize(leases_by_ip, leases_by_mac, reservations_by_ip, reservations_by_mac, reservations_by_name, subnets = {})
       @subnets = subnets
-      @subnet_keys = SortedSet.new
+      @subnet_keys = Trie.new
       @leases_by_ip = leases_by_ip
       @leases_by_mac = leases_by_mac
       @reservations_by_ip = reservations_by_ip
@@ -49,7 +49,12 @@ module Proxy::DHCP
       m.synchronize do
         ipv4_as_i = ipv4_to_i(address)
         return subnets[ipv4_as_i] if subnets.key?(ipv4_as_i)
-        do_find_subnet(subnet_keys.to_a, subnets, ipv4_as_i, address)
+
+        closest_subnet = subnet_keys.find_or_predecessor(ipv4_as_i)
+        if closest_subnet
+          closest_subnet = subnets[closest_subnet]
+          closest_subnet if closest_subnet && closest_subnet.include?(address)
+        end
       end
     end
 
@@ -166,6 +171,93 @@ module Proxy::DHCP
 
     def group_changes
       m.synchronize { yield }
+    end
+
+    class Trie
+      attr_reader :root # MS bit
+
+      def initialize
+        @root = TrieEntry.new
+      end
+
+      def add(key)
+        key_bits = to_bits(key)
+        parent = find_parent(root, key_bits)
+        last_bit = key_bits.first.zero? ? :zero= : :one=
+        parent.send(last_bit, TrieEntry.new)
+      end
+
+      def find_or_predecessor(key)
+        memo = []
+        find_or_predecessor_internal(root, to_bits(key), memo)
+
+        (0..3).inject(0) do |r, b|
+          r = r << 8
+          r += memo[b*8,8].join.to_i(2)
+        end
+      end
+
+      private
+
+      def find_parent(root, bits)
+        return root if bits.length == 1
+
+        next_bit = bits.shift
+        next_entry = if next_bit.zero?
+                       root.zero = TrieEntry.new if root.zero.nil?
+                       root.zero
+                     else
+                       root.one = TrieEntry.new if root.one.nil?
+                       root.one
+                     end
+
+        find_parent(next_entry, bits)
+      end
+
+      def find_or_predecessor_internal(root, bits, memo)
+        return root if bits.empty? # success
+        return nil if root.nil? # failed, caller should find predecessor
+
+        next_bit = bits.shift
+
+        result = if next_bit.zero? && root.zero
+                   memo << 0
+                   find_or_predecessor_internal(root.zero, bits, memo)
+                 elsif next_bit == 1 && root.one
+                   memo << 1
+                   find_or_predecessor_internal(root.one, bits, memo)
+                 end
+
+        # find predecessor in left-hand tree if first searching the right
+        if result.nil? && next_bit == 1 && root.zero
+          memo << 0
+          result = find_rightmost(root.zero, memo)
+        end
+
+        result
+      end
+
+      def find_rightmost(root, memo)
+        if memo.length == 32 # leaf
+          root
+        elsif root.one
+          memo << 1
+          find_rightmost(root.one, memo)
+        elsif root.zero
+          memo << 0
+          find_rightmost(root.zero, memo)
+        else
+          nil
+        end
+      end
+
+      def to_bits(key)
+        Array.new(32) { |i| key[i] }.reverse! # MS to LS
+      end
+    end
+
+    class TrieEntry
+      attr_accessor :zero, :one
     end
   end
 end
