@@ -177,23 +177,25 @@ module Proxy::DHCP
       attr_reader :root # MS bit
 
       def initialize
-        @root = TrieEntry.new
+        @root = TrieEntry.new([])
       end
 
       def add(key)
         key_bits = to_bits(key)
         parent = find_parent(root, key_bits)
-        last_bit = key_bits.first.zero? ? :zero= : :one=
-        parent.send(last_bit, TrieEntry.new)
+        if key_bits.first.zero?
+          parent.zero = TrieEntry.new(parent.path + [0])
+        else
+          parent.one = TrieEntry.new(parent.path + [1])
+        end
       end
 
       def find_or_predecessor(key)
-        memo = []
-        find_or_predecessor_internal(root, to_bits(key), memo)
-
-        (0..3).inject(0) do |r, b|
-          r = r << 8
-          r += memo[b*8,8].join.to_i(2)
+        if (result = find_or_predecessor_internal(root, to_bits(key)))
+          (0..3).inject(0) do |r, b|
+            r = r << 8
+            r += result.path[b*8,8].join.to_i(2)
+          end
         end
       end
 
@@ -204,47 +206,42 @@ module Proxy::DHCP
 
         next_bit = bits.shift
         next_entry = if next_bit.zero?
-                       root.zero = TrieEntry.new if root.zero.nil?
+                       root.zero = TrieEntry.new(root.path + [0]) if root.zero.nil?
                        root.zero
                      else
-                       root.one = TrieEntry.new if root.one.nil?
+                       root.one = TrieEntry.new(root.path + [1]) if root.one.nil?
                        root.one
                      end
 
         find_parent(next_entry, bits)
       end
 
-      def find_or_predecessor_internal(root, bits, memo)
+      def find_or_predecessor_internal(root, bits)
         return root if bits.empty? # success
         return nil if root.nil? # failed, caller should find predecessor
 
         next_bit = bits.shift
 
         result = if next_bit.zero? && root.zero
-                   memo << 0
-                   find_or_predecessor_internal(root.zero, bits, memo)
+                   find_or_predecessor_internal(root.zero, bits)
                  elsif next_bit == 1 && root.one
-                   memo << 1
-                   find_or_predecessor_internal(root.one, bits, memo)
+                   find_or_predecessor_internal(root.one, bits)
                  end
 
         # find predecessor in left-hand tree if first searching the right
         if result.nil? && next_bit == 1 && root.zero
-          memo << 0
-          result = find_rightmost(root.zero, memo)
+          result = find_rightmost(root.zero)
         end
 
         result
       end
 
-      def find_rightmost(root, memo)
+      def find_rightmost(root)
         if root.one
-          memo << 1
-          find_rightmost(root.one, memo)
+          find_rightmost(root.one)
         elsif root.zero
-          memo << 0
-          find_rightmost(root.zero, memo)
-        elsif memo.length == 32 # leaf
+          find_rightmost(root.zero)
+        elsif root.leaf?
           root
         else
           nil
@@ -257,7 +254,17 @@ module Proxy::DHCP
     end
 
     class TrieEntry
+      attr_reader :path
       attr_accessor :zero, :one
+
+      def initialize(path)
+        @path = path
+      end
+
+      def leaf?
+        return @leaf unless @leaf.nil?
+        @leaf = (path.length == 32)
+      end
     end
   end
 end
