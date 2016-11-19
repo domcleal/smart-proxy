@@ -55,7 +55,7 @@ module Proxy::DHCP
         search_as_i &= (2**32-1) ^ (2**bit-1)
         if all_subnets.key?(search_as_i)
           matching = all_subnets[search_as_i]
-          return matching if ipv4_to_i(matching.netmask) & address_as_i == search_as_i
+          return matching if matching.netmask_to_i & address_as_i == search_as_i
         end
       end
       nil

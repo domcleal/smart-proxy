@@ -58,6 +58,10 @@ module Proxy::DHCP
       "#{r.first}-#{r.last}"
     end
 
+    def netmask_to_i
+      @netmask_to_i ||= ipv4_to_i(netmask)
+    end
+
     def get_index_and_lock filename
       # Store for use in the unlock method
       @filename = "#{Dir::tmpdir}/#{filename}"
@@ -204,6 +208,10 @@ module Proxy::DHCP
       # We failed to check this address so we should not use it
       logger.warn "Unable to icmp ping #{ip} because #{err.inspect}. Skipping this address..."
       true
+    end
+
+    def ipv4_to_i(ipv4_address)
+      ipv4_address.split('.').inject(0) { |i, octet| (i << 8) | (octet.to_i & 0xff) }
     end
   end
 end
