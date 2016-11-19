@@ -1,14 +1,11 @@
-require 'set'
-
 module Proxy::DHCP
   class SubnetService
     include Proxy::Log
 
-    attr_reader :m, :subnets, :subnet_keys, :leases_by_ip, :leases_by_mac, :reservations_by_ip, :reservations_by_mac, :reservations_by_name
+    attr_reader :m, :subnets, :leases_by_ip, :leases_by_mac, :reservations_by_ip, :reservations_by_mac, :reservations_by_name
 
     def initialize(leases_by_ip, leases_by_mac, reservations_by_ip, reservations_by_mac, reservations_by_name, subnets = {})
       @subnets = subnets
-      @subnet_keys = SortedSet.new
       @leases_by_ip = leases_by_ip
       @leases_by_mac = leases_by_mac
       @reservations_by_ip = reservations_by_ip
@@ -28,7 +25,6 @@ module Proxy::DHCP
         raise Proxy::DHCP::Error, "Unable to add subnet #{subnet}" if subnets.key?(key)
         logger.debug("Added a subnet: #{subnet.network}")
         subnets[key] = subnet
-        subnet_keys.add(key)
         subnet
       end
     end
@@ -41,10 +37,7 @@ module Proxy::DHCP
     end
 
     def delete_subnet(subnet_address)
-      m.synchronize do
-        subnets.delete(ipv4_to_i(subnet_address))
-        subnet_keys.delete(ipv4_to_i(subnet_address))
-      end
+      m.synchronize { subnets.delete(ipv4_to_i(subnet_address)) }
       logger.debug("Deleted a subnet: #{subnet_address}")
     end
 
@@ -52,32 +45,20 @@ module Proxy::DHCP
       m.synchronize do
         ipv4_as_i = ipv4_to_i(address)
         return subnets[ipv4_as_i] if subnets.key?(ipv4_as_i)
-        do_find_subnet(subnet_keys.to_a, subnets, ipv4_as_i, address)
+        do_find_subnet(subnets, ipv4_as_i, address)
       end
     end
 
-    def do_find_subnet(a_slice, all_subnets, address_as_i, address)
-      return nil if a_slice.empty?
-      if a_slice.size == 1
-        return ipv4_to_i(all_subnets[a_slice.first].netmask) & address_as_i == a_slice.first ? all_subnets[a_slice.first] : nil
+    def do_find_subnet(all_subnets, address_as_i, address)
+      search_as_i = address_as_i
+      (1..32).each do |bit|
+        search_as_i &= (2**32-1) ^ (2**bit-1)
+        if all_subnets.key?(search_as_i)
+          matching = all_subnets[search_as_i]
+          return matching if ipv4_to_i(matching.netmask) & address_as_i == search_as_i
+        end
       end
-      if a_slice.size == 2
-        return all_subnets[a_slice.first] if ipv4_to_i(all_subnets[a_slice.first].netmask) & address_as_i == a_slice.first
-        return all_subnets[a_slice.last] if ipv4_to_i(all_subnets[a_slice.last].netmask) & address_as_i == a_slice.last
-        return nil
-      end
-
-      i = a_slice.size/2 - 1
-      distance_left = address_as_i - a_slice[i]
-      distance_right = address_as_i - a_slice[i+1]
-
-      # a shortcut
-      if distance_left > 0 && distance_right < 0
-        return ipv4_to_i(all_subnets[a_slice[i]].netmask) & address_as_i == a_slice[i] ? all_subnets[a_slice[i]] : nil
-      end
-
-      return do_find_subnet(a_slice[0..i], all_subnets, address_as_i, address) if distance_left.abs < distance_right.abs
-      do_find_subnet(a_slice[i+1..-1], all_subnets, address_as_i, address)
+      nil
     end
 
     def ipv4_to_i(ipv4_address)
