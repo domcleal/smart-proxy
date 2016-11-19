@@ -52,7 +52,7 @@ module Proxy::DHCP
     def do_find_subnet(all_subnets, address_as_i, address)
       search_as_i = address_as_i
       (1..32).each do |bit|
-        search_as_i &= (2**32-1) ^ (2**bit-1)
+        search_as_i &= ~((1 << bit) - 1)
         if all_subnets.key?(search_as_i)
           matching = all_subnets[search_as_i]
           return matching if matching.netmask_to_i & address_as_i == search_as_i
