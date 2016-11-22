@@ -28,7 +28,7 @@ module Proxy::DHCP
         raise Proxy::DHCP::Error, "Unable to add subnet #{subnet}" if subnets.key?(key)
         logger.debug("Added a subnet: #{subnet.network}")
         subnets[key] = subnet
-        subnet_keys.add(key)
+        subnet_keys.add(key, subnet.cidr)
         subnet
       end
     end
@@ -180,29 +180,22 @@ module Proxy::DHCP
         @root = TrieEntry.new([])
       end
 
-      def add(key)
-        key_bits = to_bits(key)
+      def add(key, prefix_length)
+        key_bits = to_bits(key)[0,prefix_length]
         parent = find_parent(root, key_bits)
-        if key_bits.first.zero?
-          parent.zero = TrieEntry.new(parent.path + [0])
-        else
-          parent.one = TrieEntry.new(parent.path + [1])
-        end
+        parent.subnet = key
       end
 
       def find_or_predecessor(key)
         if (result = find_or_predecessor_internal(root, to_bits(key)))
-          (0..3).inject(0) do |r, b|
-            r = r << 8
-            r += result.path[b*8,8].join.to_i(2)
-          end
+          result.subnet
         end
       end
 
       private
 
       def find_parent(root, bits)
-        return root if bits.length == 1
+        return root if bits.empty?
 
         next_bit = bits.shift
         next_entry = if next_bit.zero?
@@ -217,34 +210,14 @@ module Proxy::DHCP
       end
 
       def find_or_predecessor_internal(root, bits)
-        return root if bits.empty? # success
-        return nil if root.nil? # failed, caller should find predecessor
+        return root if root.subnet # success, matching prefix
+        return nil if bits.empty? # failure, reached the leaf
 
         next_bit = bits.shift
-
-        result = if next_bit.zero? && root.zero
-                   find_or_predecessor_internal(root.zero, bits)
-                 elsif next_bit == 1 && root.one
-                   find_or_predecessor_internal(root.one, bits)
-                 end
-
-        # find predecessor in left-hand tree if first searching the right
-        if result.nil? && next_bit == 1 && root.zero
-          result = find_rightmost(root.zero)
-        end
-
-        result
-      end
-
-      def find_rightmost(root)
-        if root.one
-          find_rightmost(root.one)
-        elsif root.zero
-          find_rightmost(root.zero)
-        elsif root.leaf?
-          root
-        else
-          nil
+        if next_bit.zero? && root.zero
+          find_or_predecessor_internal(root.zero, bits)
+        elsif next_bit == 1 && root.one
+          find_or_predecessor_internal(root.one, bits)
         end
       end
 
@@ -255,7 +228,7 @@ module Proxy::DHCP
 
     class TrieEntry
       attr_reader :path
-      attr_accessor :zero, :one
+      attr_accessor :zero, :one, :subnet
 
       def initialize(path)
         @path = path
